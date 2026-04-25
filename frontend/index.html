@@ -1,0 +1,237 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Supply Chain Tracker - Supply Chain Product Traceability</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <header>
+        <h1>🔗 Supply Chain Tracker</h1>
+        <p class="subtitle">Blockchain-based Supply Chain Product Traceability System</p>
+    </header>
+
+    <!-- Connection -->
+    <section id="connection-section" class="card">
+        <h2>Connect to System</h2>
+        <div class="form-group">
+            <label for="account-select">Select Account:</label>
+            <select id="account-select">
+                <option value="">-- Select account --</option>
+            </select>
+        </div>
+        <button id="connect-btn" class="btn btn-primary">Connect</button>
+        <div id="user-info" class="user-info hidden">
+            <span id="user-name"></span>
+            <span id="user-role" class="badge"></span>
+            <span id="user-address" class="address"></span>
+        </div>
+    </section>
+
+    <!-- Navigation menu (shown after connection) -->
+    <nav id="main-nav" class="hidden">
+        <button class="nav-btn active" data-panel="dashboard">📊 Dashboard</button>
+        <button class="nav-btn" data-panel="register-user">👤 Register User</button>
+        <button class="nav-btn" data-panel="create-batch">📦 New Batch</button>
+        <button class="nav-btn" data-panel="update-batch">🔄 Update Batch</button>
+        <button class="nav-btn" data-panel="transfer-batch">➡️ Transfer</button>
+        <button class="nav-btn" data-panel="certify-batch">✅ Certification</button>
+        <button class="nav-btn" data-panel="search-batch">🔍 Search</button>
+        <button class="nav-btn" data-panel="all-batches">📋 All Batches</button>
+        <button class="nav-btn" data-panel="all-users">👥 Users</button>
+    </nav>
+
+    <!-- Panels -->
+    <main id="panels" class="hidden">
+
+        <!-- Dashboard -->
+        <section id="panel-dashboard" class="panel card">
+            <h2>📊 Dashboard</h2>
+            <div class="stats">
+                <div class="stat-box">
+                    <span class="stat-number" id="stat-batches">0</span>
+                    <span class="stat-label">Batches</span>
+                </div>
+                <div class="stat-box">
+                    <span class="stat-number" id="stat-users">0</span>
+                    <span class="stat-label">Users</span>
+                </div>
+                <div class="stat-box">
+                    <span class="stat-number" id="stat-certified">0</span>
+                    <span class="stat-label">Certified</span>
+                </div>
+            </div>
+        </section>
+
+        <!-- Register User (Admin only) -->
+        <section id="panel-register-user" class="panel card hidden">
+            <h2>👤 Register New User</h2>
+            <div class="form-group">
+                <label>Ethereum Address:</label>
+                <input type="text" id="reg-address" placeholder="0x...">
+            </div>
+            <div class="form-group">
+                <label>Name:</label>
+                <input type="text" id="reg-name" placeholder="Username">
+            </div>
+            <div class="form-group">
+                <label>Role:</label>
+                <select id="reg-role">
+                    <option value="2">Producer</option>
+                    <option value="3">Transporter</option>
+                    <option value="4">Warehouse / Distribution Center</option>
+                    <option value="5">Distributor / Retailer</option>
+                    <option value="6">Regulator / Regulatory Authority</option>
+                </select>
+            </div>
+            <button id="register-user-btn" class="btn btn-primary">Register</button>
+            <div id="register-user-result" class="result"></div>
+        </section>
+
+        <!-- Create Batch (Producer only) -->
+        <section id="panel-create-batch" class="panel card hidden">
+            <h2>📦 Create New Batch</h2>
+            <div class="form-group">
+                <label>Product Type:</label>
+                <input type="text" id="batch-type" placeholder="e.g. Olive Oil">
+            </div>
+            <div class="form-group">
+                <label>Category:</label>
+                <select id="batch-category">
+                    <option value="0">Perishable</option>
+                    <option value="1">Non-Perishable</option>
+                </select>
+            </div>
+            <div class="form-group">
+                <label>Origin Location:</label>
+                <input type="text" id="batch-origin" placeholder="e.g. Kalamata, Messinia">
+            </div>
+            <button id="create-batch-btn" class="btn btn-primary">Create Batch</button>
+            <div id="create-batch-result" class="result"></div>
+        </section>
+
+        <!-- Update Batch Status -->
+        <section id="panel-update-batch" class="panel card hidden">
+            <h2>🔄 Update Batch Status</h2>
+            <div class="form-group">
+                <label>Batch ID:</label>
+                <input type="number" id="update-batch-id" placeholder="e.g. 1" min="1">
+            </div>
+            <div class="form-group">
+                <label>New Status:</label>
+                <select id="update-status">
+                    <option value="0">Produced</option>
+                    <option value="1">Stored</option>
+                    <option value="2">In Transit</option>
+                    <option value="3">Delivered</option>
+                </select>
+            </div>
+            <div class="form-group">
+                <label>Location:</label>
+                <input type="text" id="update-location" placeholder="Location">
+            </div>
+            <div class="form-group">
+                <label>Notes:</label>
+                <input type="text" id="update-notes" placeholder="Notes">
+            </div>
+            <button id="update-batch-btn" class="btn btn-primary">Update</button>
+            <div id="update-batch-result" class="result"></div>
+        </section>
+
+        <!-- Transfer Batch -->
+        <section id="panel-transfer-batch" class="panel card hidden">
+            <h2>➡️ Transfer Batch</h2>
+            <div class="form-group">
+                <label>Batch ID:</label>
+                <input type="number" id="transfer-batch-id" placeholder="e.g. 1" min="1">
+            </div>
+            <div class="form-group">
+                <label>New Holder (Ethereum Address):</label>
+                <input type="text" id="transfer-new-holder" placeholder="0x...">
+            </div>
+            <button id="transfer-batch-btn" class="btn btn-primary">Transfer</button>
+            <div id="transfer-batch-result" class="result"></div>
+        </section>
+
+        <!-- Certification (Regulator only) -->
+        <section id="panel-certify-batch" class="panel card hidden">
+            <h2>✅ Certify Batch</h2>
+            <div class="form-group">
+                <label>Batch ID:</label>
+                <input type="number" id="certify-batch-id" placeholder="e.g. 1" min="1">
+            </div>
+            <button id="certify-batch-btn" class="btn btn-primary">Certify</button>
+            <div id="certify-batch-result" class="result"></div>
+        </section>
+
+        <!-- Search Batch -->
+        <section id="panel-search-batch" class="panel card">
+            <h2>🔍 Search Batch</h2>
+            <div class="form-group">
+                <label>Batch ID:</label>
+                <input type="number" id="search-batch-id" placeholder="e.g. 1" min="1">
+            </div>
+            <button id="search-batch-btn" class="btn btn-primary">Search</button>
+            <div id="search-result" class="result"></div>
+            <div id="batch-detail" class="hidden">
+                <h3>Batch Details</h3>
+                <table id="batch-detail-table" class="data-table">
+                    <tbody></tbody>
+                </table>
+                <h3>Route History</h3>
+                <div id="batch-timeline" class="timeline"></div>
+            </div>
+        </section>
+
+        <!-- All Batches -->
+        <section id="panel-all-batches" class="panel card hidden">
+            <h2>📋 All Batches</h2>
+            <table id="all-batches-table" class="data-table">
+                <thead>
+                    <tr>
+                        <th>ID</th>
+                        <th>Type</th>
+                        <th>Category</th>
+                        <th>Origin</th>
+                        <th>Status</th>
+                        <th>Holder</th>
+                        <th>Cert.</th>
+                    </tr>
+                </thead>
+                <tbody></tbody>
+            </table>
+        </section>
+
+        <!-- Users -->
+        <section id="panel-all-users" class="panel card hidden">
+            <h2>👥 Registered Users</h2>
+            <table id="all-users-table" class="data-table">
+                <thead>
+                    <tr>
+                        <th>Address</th>
+                        <th>Name</th>
+                        <th>Role</th>
+                        <th>Status</th>
+                    </tr>
+                </thead>
+                <tbody></tbody>
+            </table>
+        </section>
+
+    </main>
+
+    <!-- Transaction Log -->
+    <section id="tx-log-section" class="card hidden">
+        <h2>📝 Transaction Log</h2>
+        <div id="tx-log"></div>
+    </section>
+
+    <footer>
+        <p>Supply Chain Tracker &copy; 2026 — Blockchain-based Product Traceability System</p>
+    </footer>
+
+    <script src="https://cdn.jsdelivr.net/npm/ethers@6.13.4/dist/ethers.umd.min.js"></script>
+    <script type="module" src="app.js"></script>
+</body>
+</html>
