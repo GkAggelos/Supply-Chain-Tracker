@@ -76,7 +76,7 @@ contract SupplyChain {
     //  State Variables
     // =========================================================================
 
-    address public admin;                           // Admin account
+    address public immutable admin;                  // Admin account (immutable for gas savings)
     uint256 public batchCount;                      // Batch counter
 
     mapping(address => User)       public users;            // address → User
@@ -85,6 +85,10 @@ contract SupplyChain {
 
     address[] public userAddresses;                 // List of user addresses
     uint256[] public batchIds;                      // List of batch IDs
+
+    // Authentication
+    mapping(string  => address)  private usernameToAddress;  // username → address
+    mapping(address => bytes32)  private passwordHashes;     // address → keccak256(password)
 
     // =========================================================================
     //  Events (Logging critical actions)
@@ -171,14 +175,16 @@ contract SupplyChain {
     /**
      * @notice The deployer automatically becomes Admin.
      */
-    constructor() {
+    constructor(bytes32 _adminPasswordHash) {
         admin = msg.sender;
         users[msg.sender] = User({
             userAddress: msg.sender,
-            name: "Admin",
+            name: "admin",
             role: Role.Admin,
             active: true
         });
+        usernameToAddress["admin"] = msg.sender;
+        passwordHashes[msg.sender] = _adminPasswordHash;
         userAddresses.push(msg.sender);
         emit UserRegistered(msg.sender, "Admin", Role.Admin);
     }
@@ -196,11 +202,14 @@ contract SupplyChain {
     function registerUser(
         address _userAddress,
         string calldata _name,
-        Role _role
+        Role _role,
+        bytes32 _passwordHash
     ) external onlyAdmin {
         require(_userAddress != address(0), "Invalid address");
         require(_role != Role.None, "Role cannot be None");
         require(!users[_userAddress].active, "User already registered");
+        require(usernameToAddress[_name] == address(0), "Username already taken");
+        require(_passwordHash != bytes32(0), "Password hash required");
 
         users[_userAddress] = User({
             userAddress: _userAddress,
@@ -208,6 +217,8 @@ contract SupplyChain {
             role: _role,
             active: true
         });
+        usernameToAddress[_name] = _userAddress;
+        passwordHashes[_userAddress] = _passwordHash;
         userAddresses.push(_userAddress);
 
         emit UserRegistered(_userAddress, _name, _role);
@@ -222,6 +233,17 @@ contract SupplyChain {
         require(_userAddress != admin, "Cannot deactivate admin");
         users[_userAddress].active = false;
         emit UserDeactivated(_userAddress);
+    }
+
+    /**
+     * @notice Reactivate a user (Admin only).
+     * @param _userAddress Address of the user to reactivate
+     */
+    function reactivateUser(address _userAddress) external onlyAdmin {
+        require(!users[_userAddress].active, "User already active");
+        require(users[_userAddress].userAddress != address(0), "User does not exist");
+        users[_userAddress].active = true;
+        emit UserRegistered(_userAddress, users[_userAddress].name, users[_userAddress].role);
     }
 
     // =========================================================================
@@ -410,5 +432,28 @@ contract SupplyChain {
      */
     function getUserCount() external view returns (uint256) {
         return userAddresses.length;
+    }
+
+    /**
+     * @notice Verify login credentials. Returns (success, userAddress).
+     * @param _username  The username
+     * @param _passwordHash  keccak256 hash of the password
+     */
+    function verifyLogin(
+        string calldata _username,
+        bytes32 _passwordHash
+    ) external view returns (bool, address) {
+        address userAddr = usernameToAddress[_username];
+        if (userAddr == address(0)) return (false, address(0));
+        if (!users[userAddr].active) return (false, address(0));
+        if (passwordHashes[userAddr] != _passwordHash) return (false, address(0));
+        return (true, userAddr);
+    }
+
+    /**
+     * @notice Get address associated with a username.
+     */
+    function getAddressByUsername(string calldata _username) external view returns (address) {
+        return usernameToAddress[_username];
     }
 }

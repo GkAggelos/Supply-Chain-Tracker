@@ -12,6 +12,7 @@
   "type": "module",
   "devDependencies": {
     "@nomicfoundation/hardhat-toolbox": "^6.1.2",
-    "hardhat": "^2.28.6"
+    "hardhat": "^2.28.6",
+    "solhint": "^6.2.1"
   }
 }

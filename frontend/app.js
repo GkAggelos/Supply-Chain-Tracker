@@ -19,23 +19,131 @@ let currentUser = null;
 // Initialization
 // ============================================
 document.addEventListener("DOMContentLoaded", () => {
-    setupAccountSelector();
     setupEventListeners();
 });
 
-function setupAccountSelector() {
-    const select = document.getElementById("account-select");
-    CONTRACT_CONFIG.accounts.forEach((acc) => {
-        const opt = document.createElement("option");
-        opt.value = acc.address;
-        opt.textContent = `Account #${acc.index} — ${acc.address.slice(0, 10)}...${acc.address.slice(-6)}`;
-        select.appendChild(opt);
+// ============================================
+// Helper: hash password with username as salt
+// ============================================
+function hashPassword(username, password) {
+    return ethers.keccak256(ethers.toUtf8Bytes(username.toLowerCase() + ":" + password));
+}
+
+// ============================================
+// Login
+// ============================================
+async function loginUser() {
+    const username = document.getElementById("login-username").value.trim();
+    const password = document.getElementById("login-password").value;
+    const errorEl = document.getElementById("login-error");
+
+    if (!username || !password) {
+        showResult(errorEl, "Please enter username and password!", false);
+        return;
+    }
+
+    try {
+        showLoading("Authenticating...");
+        // Connect to Hardhat node
+        provider = new ethers.JsonRpcProvider("http://127.0.0.1:8545");
+
+        // Use a read-only contract first to verify login
+        const readOnlySigner = await provider.getSigner(CONTRACT_CONFIG.accounts[0].address);
+        const readOnlyContract = new ethers.Contract(CONTRACT_CONFIG.contractAddress, CONTRACT_CONFIG.abi, readOnlySigner);
+
+        const passwordHash = hashPassword(username, password);
+        const [success, userAddress] = await readOnlyContract.verifyLogin(username, passwordHash);
+
+        if (!success) {
+            showResult(errorEl, "Invalid username or password!", false);
+            return;
+        }
+
+        // Login successful — get signer for this address
+        signer = await getSignerForAddress(userAddress);
+        contract = new ethers.Contract(CONTRACT_CONFIG.contractAddress, CONTRACT_CONFIG.abi, signer);
+
+        const user = await contract.getUser(userAddress);
+        currentUser = {
+            address: userAddress,
+            name: user.name,
+            role: Number(user.role),
+            active: user.active,
+        };
+
+        // Update UI
+        errorEl.style.display = "none";
+        document.getElementById("user-name").textContent = currentUser.name;
+        const roleEl = document.getElementById("user-role");
+        roleEl.textContent = ROLE_NAMES[currentUser.role];
+        roleEl.className = `badge ${ROLE_CLASSES[currentUser.role]}`;
+        document.getElementById("user-info").classList.remove("hidden");
+
+        // Hide login section, show app
+        document.getElementById("connection-section").classList.add("hidden");
+
+        document.getElementById("main-nav").classList.remove("hidden");
+        document.getElementById("panels").classList.remove("hidden");
+
+        // Logs only for admin
+        if (currentUser.role === 1) {
+            document.getElementById("tx-log-section").classList.remove("hidden");
+            loadAllLogs();
+        }
+
+        adjustNavForRole(currentUser.role);
+        switchPanel("dashboard", document.querySelector('[data-panel="dashboard"]'));
+        await loadDashboard();
+
+        logTx(`Logged in: ${currentUser.name} (${ROLE_NAMES[currentUser.role]})`);
+        hideLoading();
+    } catch (err) {
+        hideLoading();
+        showResult(errorEl, "Connection error: " + (err.message || err), false);
+        console.error(err);
+    }
+}
+
+function logoutUser() {
+    // Reset state
+    provider = null;
+    signer = null;
+    contract = null;
+    currentUser = null;
+
+    // Show login, hide app
+    document.getElementById("connection-section").classList.remove("hidden");
+    document.getElementById("login-username").value = "";
+    document.getElementById("login-password").value = "";
+    document.getElementById("login-error").style.display = "none";
+    document.getElementById("user-info").classList.add("hidden");
+
+    document.getElementById("main-nav").classList.add("hidden");
+    document.getElementById("panels").classList.add("hidden");
+    document.getElementById("tx-log-section").classList.add("hidden");
+    document.getElementById("tx-log").innerHTML = "";
+
+    // Clear all panel content from previous session
+    document.querySelectorAll("#all-batches-table tbody, #all-users-table tbody, #batch-detail-table tbody").forEach(el => el.innerHTML = "");
+    document.getElementById("batch-timeline").innerHTML = "";
+    document.getElementById("batch-detail").classList.add("hidden");
+    document.getElementById("search-result").style.display = "none";
+    document.getElementById("search-batch-id").value = "";
+    document.querySelectorAll(".result").forEach(el => { el.style.display = "none"; el.textContent = ""; });
+    document.querySelectorAll("#panels input, #panels select").forEach(el => {
+        if (el.type === "text" || el.type === "number" || el.type === "password") el.value = "";
     });
 }
 
 function setupEventListeners() {
-    // Connect
-    document.getElementById("connect-btn").addEventListener("click", connectAccount);
+    // Login
+    document.getElementById("connect-btn").addEventListener("click", loginUser);
+    document.getElementById("login-password").addEventListener("keydown", (e) => {
+        if (e.key === "Enter") loginUser();
+    });
+
+    // Logout
+    document.getElementById("logout-btn").addEventListener("click", logoutUser);
 
     // Nav buttons
     document.querySelectorAll(".nav-btn").forEach((btn) => {
@@ -51,80 +159,39 @@ function setupEventListeners() {
     document.getElementById("search-batch-btn").addEventListener("click", searchBatch);
 }
 
-// ============================================
-// Connection
-// ============================================
-async function connectAccount() {
-    const address = document.getElementById("account-select").value;
-    if (!address) {
-        alert("Select an account!");
-        return;
-    }
-
-    try {
-        // Connect to Hardhat local node
-        provider = new ethers.JsonRpcProvider("http://127.0.0.1:8545");
-        signer = await provider.getSigner(address);
-        contract = new ethers.Contract(CONTRACT_CONFIG.contractAddress, CONTRACT_CONFIG.abi, signer);
-
-        // Get user info
-        const user = await contract.getUser(address);
-        currentUser = {
-            address: address,
-            name: user.name,
-            role: Number(user.role),
-            active: user.active,
-        };
-
-        // Update UI
-        document.getElementById("user-name").textContent = currentUser.name || "Not registered";
-        const roleEl = document.getElementById("user-role");
-        roleEl.textContent = ROLE_NAMES[currentUser.role];
-        roleEl.className = `badge ${ROLE_CLASSES[currentUser.role]}`;
-        document.getElementById("user-address").textContent = address;
-        document.getElementById("user-info").classList.remove("hidden");
-
-        // Show nav & panels
-        document.getElementById("main-nav").classList.remove("hidden");
-        document.getElementById("panels").classList.remove("hidden");
-        document.getElementById("tx-log-section").classList.remove("hidden");
-
-        // Adjust visible nav based on role
-        adjustNavForRole(currentUser.role);
-
-        // Load dashboard
-        switchPanel("dashboard", document.querySelector('[data-panel="dashboard"]'));
-        await loadDashboard();
-
-        logTx(`Connected: ${currentUser.name} (${ROLE_NAMES[currentUser.role]})`);
-    } catch (err) {
-        alert("Connection error: " + err.message);
-        console.error(err);
-    }
-}
-
 function adjustNavForRole(role) {
-    const navBtns = document.querySelectorAll(".nav-btn");
-    navBtns.forEach((btn) => {
-        btn.classList.remove("hidden");
-    });
+    // Hide all nav buttons first, then show only relevant ones
+    const panel = (name) => document.querySelector(`[data-panel="${name}"]`);
+    const allPanels = ["dashboard", "register-user", "create-batch", "update-batch",
+                       "transfer-batch", "certify-batch", "search-batch", "all-batches", "all-users"];
+    allPanels.forEach(p => { if (panel(p)) panel(p).classList.add("hidden"); });
+
+    // Always visible
+    panel("dashboard").classList.remove("hidden");
+    panel("search-batch").classList.remove("hidden");
 
     // Roles: 1=Admin, 2=Producer, 3=Transporter, 4=Warehouse, 5=Distributor, 6=Regulator
-    const panel = (name) => document.querySelector(`[data-panel="${name}"]`);
-
-    // Admin-only: user registration
-    if (role !== 1) panel("register-user").classList.add("hidden");
-
-    // Producer-only: batch creation
-    if (role !== 2) panel("create-batch").classList.add("hidden");
-
-    // Regulator-only: certification
-    if (role !== 6) panel("certify-batch").classList.add("hidden");
-
-    // Regulator sees all, others see limited update/transfer
-    if (role === 6) {
-        panel("update-batch").classList.add("hidden");
-        panel("transfer-batch").classList.add("hidden");
+    if (role === 1) {
+        // Admin: manage users + view all batches
+        panel("register-user").classList.remove("hidden");
+        panel("all-users").classList.remove("hidden");
+        panel("all-batches").classList.remove("hidden");
+    } else if (role === 2) {
+        // Producer
+        panel("create-batch").classList.remove("hidden");
+        panel("update-batch").classList.remove("hidden");
+        panel("transfer-batch").classList.remove("hidden");
+        panel("all-batches").classList.remove("hidden");
+    } else if (role >= 3 && role <= 5) {
+        // Transporter, Warehouse, Distributor
+        panel("update-batch").classList.remove("hidden");
+        panel("transfer-batch").classList.remove("hidden");
+        panel("all-batches").classList.remove("hidden");
+    } else if (role === 6) {
+        // Regulator: full read access + certify
+        panel("certify-batch").classList.remove("hidden");
+        panel("all-batches").classList.remove("hidden");
+        panel("all-users").classList.remove("hidden");
     }
 }
 
@@ -151,44 +218,141 @@ function switchPanel(panelName, btn) {
 // ============================================
 async function loadDashboard() {
     try {
+        showLoading("Loading dashboard...");
         const batchCount = await contract.batchCount();
-        const userCount = await contract.getUserCount();
+        const isFullAccess = currentUser.role === 1 || currentUser.role === 6;
 
-        document.getElementById("stat-batches").textContent = Number(batchCount);
-        document.getElementById("stat-users").textContent = Number(userCount);
+        if (isFullAccess) {
+            // Admin & Regulator see global stats
+            document.getElementById("stat-users-box").style.display = "";
+            const userCount = await contract.getUserCount();
+            document.getElementById("stat-batches").textContent = Number(batchCount);
+            document.getElementById("stat-users").textContent = Number(userCount);
 
-        // Count certified
-        let certifiedCount = 0;
-        for (let i = 1; i <= Number(batchCount); i++) {
-            const batch = await contract.getBatch(i);
-            if (batch.certified) certifiedCount++;
+            let certifiedCount = 0;
+            for (let i = 1; i <= Number(batchCount); i++) {
+                const batch = await contract.getBatch(i);
+                if (batch.certified) certifiedCount++;
+            }
+            document.getElementById("stat-certified").textContent = certifiedCount;
+        } else {
+            // Other roles: hide users stat, show only their batch stats
+            document.getElementById("stat-users-box").style.display = "none";
+            let myBatches = 0;
+            let myCertified = 0;
+            for (let i = 1; i <= Number(batchCount); i++) {
+                const b = await contract.getBatch(i);
+                let involved = b.producer.toLowerCase() === currentUser.address.toLowerCase() ||
+                               b.currentHolder.toLowerCase() === currentUser.address.toLowerCase();
+                if (!involved) {
+                    const history = await contract.getBatchHistory(i);
+                    for (const cp of history) {
+                        if (cp.handler.toLowerCase() === currentUser.address.toLowerCase()) {
+                            involved = true;
+                            break;
+                        }
+                    }
+                }
+                if (involved) {
+                    myBatches++;
+                    if (b.certified) myCertified++;
+                }
+            }
+            document.getElementById("stat-batches").textContent = myBatches;
+            document.getElementById("stat-certified").textContent = myCertified;
         }
-        document.getElementById("stat-certified").textContent = certifiedCount;
+        hideLoading();
     } catch (err) {
+        hideLoading();
         console.error("Dashboard error:", err);
     }
 }
 
 // ============================================
+// Signer helper: Hardhat accounts or generated wallets
+// ============================================
+async function getSignerForAddress(address) {
+    const isHardhatAccount = CONTRACT_CONFIG.accounts.some(
+        a => a.address.toLowerCase() === address.toLowerCase()
+    );
+    if (isHardhatAccount) {
+        return await provider.getSigner(address);
+    }
+    // Generated wallet — retrieve private key from localStorage
+    const keys = JSON.parse(localStorage.getItem("sct_wallets") || "{}");
+    const pk = keys[address.toLowerCase()];
+    if (pk) {
+        return new ethers.Wallet(pk, provider);
+    }
+    throw new Error("No signing key found for this address. Was the account created on this browser?");
+}
+
+// ============================================
 // Register User (Admin)
 // ============================================
+async function findOrCreateAddress() {
+    // 1. Try pre-funded Hardhat accounts first
+    for (const acc of CONTRACT_CONFIG.accounts) {
+        const user = await contract.getUser(acc.address);
+        if (Number(user.role) === 0) {
+            return acc.address;
+        }
+    }
+    // 2. All Hardhat accounts taken — generate a new wallet
+    const wallet = ethers.Wallet.createRandom();
+    // Fund it from admin with 100 ETH (local testnet)
+    const fundTx = await signer.sendTransaction({
+        to: wallet.address,
+        value: ethers.parseEther("100")
+    });
+    await fundTx.wait();
+    // Save private key in localStorage
+    const keys = JSON.parse(localStorage.getItem("sct_wallets") || "{}");
+    keys[wallet.address.toLowerCase()] = wallet.privateKey;
+    localStorage.setItem("sct_wallets", JSON.stringify(keys));
+    return wallet.address;
+}
+
 async function registerUser() {
-    const address = document.getElementById("reg-address").value.trim();
     const name = document.getElementById("reg-name").value.trim();
+    const password = document.getElementById("reg-password").value;
     const role = document.getElementById("reg-role").value;
+    const customAddress = document.getElementById("reg-address").value.trim();
     const resultEl = document.getElementById("register-user-result");
 
-    if (!address || !name) {
-        showResult(resultEl, "Please fill in all fields!", false);
+    if (!name || !password) {
+        showResult(resultEl, "Username and password are required!", false);
+        return;
+    }
+
+    if (password.length < 4) {
+        showResult(resultEl, "Password must be at least 4 characters!", false);
         return;
     }
 
     try {
-        const tx = await contract.registerUser(address, name, parseInt(role));
+        showLoading("Registering user...");
+        // Determine address: custom or auto-create
+        let address = customAddress;
+        if (!address) {
+            address = await findOrCreateAddress();
+        }
+
+        // Hash password client-side (username as salt)
+        const passwordHash = hashPassword(name, password);
+
+        const tx = await contract.registerUser(address, name, parseInt(role), passwordHash);
         await tx.wait();
-        showResult(resultEl, `User ${name} registered successfully! TX: ${tx.hash.slice(0, 20)}...`, true);
+        showResult(resultEl, `User "${name}" registered successfully! Address: ${address.slice(0, 10)}...`, true);
         logTx(`User registered: ${name} → ${ROLE_NAMES[role]}`);
+
+        // Clear form
+        document.getElementById("reg-name").value = "";
+        document.getElementById("reg-password").value = "";
+        document.getElementById("reg-address").value = "";
+        hideLoading();
     } catch (err) {
+        hideLoading();
         showResult(resultEl, `Error: ${parseError(err)}`, false);
     }
 }
@@ -208,11 +372,14 @@ async function createBatch() {
     }
 
     try {
+        showLoading("Creating batch...");
         const tx = await contract.createBatch(productType, parseInt(category), origin);
         const receipt = await tx.wait();
         showResult(resultEl, `Batch created successfully! TX: ${tx.hash.slice(0, 20)}...`, true);
         logTx(`New batch: ${productType} (${origin})`);
+        hideLoading();
     } catch (err) {
+        hideLoading();
         showResult(resultEl, `Error: ${parseError(err)}`, false);
     }
 }
@@ -233,11 +400,14 @@ async function updateBatchStatus() {
     }
 
     try {
+        showLoading("Updating status...");
         const tx = await contract.updateBatchStatus(parseInt(batchId), parseInt(status), location, notes);
         await tx.wait();
         showResult(resultEl, `Status updated to ${STATUS_NAMES[status]}! TX: ${tx.hash.slice(0, 20)}...`, true);
         logTx(`Batch #${batchId} updated to ${STATUS_NAMES[status]}`);
+        hideLoading();
     } catch (err) {
+        hideLoading();
         showResult(resultEl, `Error: ${parseError(err)}`, false);
     }
 }
@@ -247,20 +417,39 @@ async function updateBatchStatus() {
 // ============================================
 async function transferBatch() {
     const batchId = document.getElementById("transfer-batch-id").value;
-    const newHolder = document.getElementById("transfer-new-holder").value.trim();
+    const newHolderInput = document.getElementById("transfer-new-holder").value.trim();
     const resultEl = document.getElementById("transfer-batch-result");
 
-    if (!batchId || !newHolder) {
+    if (!batchId || !newHolderInput) {
         showResult(resultEl, "Please fill in ID and new holder!", false);
         return;
     }
 
     try {
-        const tx = await contract.transferBatch(parseInt(batchId), newHolder);
+        showLoading("Transferring batch...");
+        let newHolderAddress;
+        let displayName = newHolderInput;
+
+        if (newHolderInput.startsWith("0x") && newHolderInput.length === 42) {
+            // Input is an address
+            newHolderAddress = newHolderInput;
+        } else {
+            // Input is a username — resolve to address
+            newHolderAddress = await contract.getAddressByUsername(newHolderInput);
+            if (newHolderAddress === ethers.ZeroAddress) {
+                hideLoading();
+                showResult(resultEl, `User "${newHolderInput}" not found!`, false);
+                return;
+            }
+        }
+
+        const tx = await contract.transferBatch(parseInt(batchId), newHolderAddress);
         await tx.wait();
-        showResult(resultEl, `Transfer successful! TX: ${tx.hash.slice(0, 20)}...`, true);
-        logTx(`Batch #${batchId} transferred to ${newHolder.slice(0, 10)}...`);
+        showResult(resultEl, `Transfer successful to "${displayName}"! TX: ${tx.hash.slice(0, 20)}...`, true);
+        logTx(`Batch #${batchId} transferred to ${displayName}`);
+        hideLoading();
     } catch (err) {
+        hideLoading();
         showResult(resultEl, `Error: ${parseError(err)}`, false);
     }
 }
@@ -278,11 +467,14 @@ async function certifyBatch() {
     }
 
     try {
+        showLoading("Certifying batch...");
         const tx = await contract.certifyBatch(parseInt(batchId));
         await tx.wait();
         showResult(resultEl, `Batch #${batchId} certified! TX: ${tx.hash.slice(0, 20)}...`, true);
         logTx(`Batch #${batchId} certified`);
+        hideLoading();
     } catch (err) {
+        hideLoading();
         showResult(resultEl, `Error: ${parseError(err)}`, false);
     }
 }
@@ -302,8 +494,29 @@ async function searchBatch() {
     }
 
     try {
+        showLoading("Searching...");
         const batch = await contract.getBatch(parseInt(batchId));
         const history = await contract.getBatchHistory(parseInt(batchId));
+
+        // Access check: regulator & admin see all, others only their batches
+        if (currentUser.role !== 1 && currentUser.role !== 6) {
+            let involved = batch.producer.toLowerCase() === currentUser.address.toLowerCase() ||
+                           batch.currentHolder.toLowerCase() === currentUser.address.toLowerCase();
+            if (!involved) {
+                for (const cp of history) {
+                    if (cp.handler.toLowerCase() === currentUser.address.toLowerCase()) {
+                        involved = true;
+                        break;
+                    }
+                }
+            }
+            if (!involved) {
+                hideLoading();
+                showResult(resultEl, "Access denied: you are not involved in this batch.", false);
+                detailEl.classList.add("hidden");
+                return;
+            }
+        }
 
         // Hide result msg, show detail
         resultEl.style.display = "none";
@@ -323,7 +536,7 @@ async function searchBatch() {
             <tr><td><strong>Status</strong></td><td><span class="status-${STATUS_NAMES[Number(batch.status)].toLowerCase().replace(' ', '')}">${STATUS_NAMES[Number(batch.status)]}</span></td></tr>
             <tr><td><strong>Producer</strong></td><td>${producerUser.name} (${batch.producer.slice(0, 10)}...)</td></tr>
             <tr><td><strong>Current Holder</strong></td><td>${holderUser.name} (${batch.currentHolder.slice(0, 10)}...)</td></tr>
-            <tr><td><strong>Certification</strong></td><td>${batch.certified ? "✅ Certified" : "❌ Not certified"}</td></tr>
+            <tr><td><strong>Certification</strong></td><td>${batch.certified ? '<i class="fa-solid fa-circle-check" style="color:green"></i> Certified' : '<i class="fa-solid fa-circle-xmark" style="color:red"></i> Not certified'}</td></tr>
         `;
 
         // Timeline
@@ -343,7 +556,9 @@ async function searchBatch() {
             `;
             timelineEl.appendChild(item);
         }
+        hideLoading();
     } catch (err) {
+        hideLoading();
         showResult(resultEl, `Error: ${parseError(err)}`, false);
         detailEl.classList.add("hidden");
     }
@@ -354,12 +569,36 @@ async function searchBatch() {
 // ============================================
 async function loadAllBatches() {
     try {
+        showLoading("Loading batches...");
         const batchCount = await contract.batchCount();
         const tbody = document.querySelector("#all-batches-table tbody");
         tbody.innerHTML = "";
+        const isFullAccess = currentUser.role === 1 || currentUser.role === 6;
 
         for (let i = 1; i <= Number(batchCount); i++) {
             const b = await contract.getBatch(i);
+
+            // Filter: admin & regulator see all, others only batches they're involved in
+            if (!isFullAccess) {
+                let involved = false;
+                // Check if producer or current holder
+                if (b.producer.toLowerCase() === currentUser.address.toLowerCase() ||
+                    b.currentHolder.toLowerCase() === currentUser.address.toLowerCase()) {
+                    involved = true;
+                }
+                // Check batch history for past involvement
+                if (!involved) {
+                    const history = await contract.getBatchHistory(i);
+                    for (const cp of history) {
+                        if (cp.handler.toLowerCase() === currentUser.address.toLowerCase()) {
+                            involved = true;
+                            break;
+                        }
+                    }
+                }
+                if (!involved) continue;
+            }
+
             const holderUser = await contract.getUser(b.currentHolder);
             const statusClass = ["status-produced", "status-stored", "status-intransit", "status-delivered"][Number(b.status)];
 
@@ -371,7 +610,7 @@ async function loadAllBatches() {
                 <td>${b.origin}</td>
                 <td><span class="${statusClass}">${STATUS_NAMES[Number(b.status)]}</span></td>
                 <td title="${b.currentHolder}">${holderUser.name || b.currentHolder.slice(0, 10) + "..."}</td>
-                <td>${b.certified ? "✅" : "❌"}</td>
+                <td>${b.certified ? '<i class="fa-solid fa-circle-check" style="color:green"></i>' : '<i class="fa-solid fa-circle-xmark" style="color:red"></i>'}</td>
             `;
             tr.style.cursor = "pointer";
             tr.addEventListener("click", () => {
@@ -381,7 +620,9 @@ async function loadAllBatches() {
             });
             tbody.appendChild(tr);
         }
+        hideLoading();
     } catch (err) {
+        hideLoading();
         console.error("Load batches error:", err);
     }
 }
@@ -391,29 +632,94 @@ async function loadAllBatches() {
 // ============================================
 async function loadAllUsers() {
     try {
+        showLoading("Loading users...");
         const addresses = await contract.getAllUserAddresses();
         const tbody = document.querySelector("#all-users-table tbody");
         tbody.innerHTML = "";
 
         for (const addr of addresses) {
             const u = await contract.getUser(addr);
+            const isAdmin = currentUser.role === 1;
+            const isSelf = addr.toLowerCase() === currentUser.address.toLowerCase();
+            let actionBtn = '';
+            if (isAdmin && !isSelf) {
+                if (u.active) {
+                    actionBtn = `<button class="btn btn-danger btn-sm" onclick="deactivateUser('${addr}')"><i class="fa-solid fa-user-slash"></i> Deactivate</button>`;
+                } else {
+                    actionBtn = `<button class="btn btn-success btn-sm" onclick="reactivateUser('${addr}')"><i class="fa-solid fa-user-check"></i> Activate</button>`;
+                }
+            }
             const tr = document.createElement("tr");
             tr.innerHTML = `
                 <td class="address">${addr}</td>
                 <td>${u.name}</td>
                 <td><span class="badge ${ROLE_CLASSES[Number(u.role)]}">${ROLE_NAMES[Number(u.role)]}</span></td>
-                <td>${u.active ? "✅ Active" : "❌ Inactive"}</td>
+                <td>${u.active ? '<i class="fa-solid fa-circle-check" style="color:green"></i> Active' : '<i class="fa-solid fa-circle-xmark" style="color:red"></i> Inactive'}</td>
+                <td>${actionBtn}</td>
             `;
             tbody.appendChild(tr);
         }
+        hideLoading();
     } catch (err) {
+        hideLoading();
         console.error("Load users error:", err);
     }
 }
 
 // ============================================
+// Deactivate User (Admin)
+// ============================================
+async function deactivateUser(address) {
+    if (!confirm(`Are you sure you want to deactivate user ${address.slice(0, 10)}...?`)) return;
+
+    try {
+        showLoading("Deactivating user...");
+        const tx = await contract.deactivateUser(address);
+        await tx.wait();
+        logTx(`User deactivated: ${address.slice(0, 10)}...`);
+        hideLoading();
+        loadAllUsers();
+    } catch (err) {
+        hideLoading();
+        alert(`Error: ${parseError(err)}`);
+    }
+}
+
+// ============================================
+// Reactivate User (Admin)
+// ============================================
+async function reactivateUser(address) {
+    if (!confirm(`Are you sure you want to reactivate user ${address.slice(0, 10)}...?`)) return;
+
+    try {
+        showLoading("Reactivating user...");
+        const tx = await contract.reactivateUser(address);
+        await tx.wait();
+        logTx(`User reactivated: ${address.slice(0, 10)}...`);
+        hideLoading();
+        loadAllUsers();
+    } catch (err) {
+        hideLoading();
+        alert(`Error: ${parseError(err)}`);
+    }
+}
+
+// Expose to global scope for inline onclick handlers
+window.deactivateUser = deactivateUser;
+window.reactivateUser = reactivateUser;
+
+// ============================================
 // Helpers
 // ============================================
+function showLoading(msg = "Processing...") {
+    document.getElementById("loading-text").textContent = msg;
+    document.getElementById("loading-overlay").classList.remove("hidden");
+}
+
+function hideLoading() {
+    document.getElementById("loading-overlay").classList.add("hidden");
+}
+
 function showResult(el, msg, success) {
     el.textContent = msg;
     el.className = `result ${success ? "success" : "error"}`;
@@ -437,9 +743,33 @@ function parseError(err) {
 }
 
 function logTx(msg) {
+    // Always persist to localStorage (all users, all actions)
+    const logs = JSON.parse(localStorage.getItem("sct_logs") || "[]");
+    const entry = { time: new Date().toISOString(), user: currentUser?.name || "system", msg };
+    logs.unshift(entry);
+    // Keep max 500 entries
+    if (logs.length > 500) logs.length = 500;
+    localStorage.setItem("sct_logs", JSON.stringify(logs));
+
+    // Only render in UI if admin is viewing
+    if (currentUser && currentUser.role === 1) {
+        const logEl = document.getElementById("tx-log");
+        const div = document.createElement("div");
+        div.className = "tx-entry";
+        div.textContent = `[${new Date().toLocaleTimeString("en-US")}] [${entry.user}] ${msg}`;
+        logEl.prepend(div);
+    }
+}
+
+function loadAllLogs() {
     const logEl = document.getElementById("tx-log");
-    const entry = document.createElement("div");
-    entry.className = "tx-entry";
-    entry.textContent = `[${new Date().toLocaleTimeString("en-US")}] ${msg}`;
-    logEl.prepend(entry);
+    logEl.innerHTML = "";
+    const logs = JSON.parse(localStorage.getItem("sct_logs") || "[]");
+    for (const entry of logs) {
+        const div = document.createElement("div");
+        div.className = "tx-entry";
+        const time = new Date(entry.time).toLocaleTimeString("en-US");
+        div.textContent = `[${time}] [${entry.user}] ${entry.msg}`;
+        logEl.appendChild(div);
+    }
 }

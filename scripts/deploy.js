@@ -23,34 +23,42 @@ async function main() {
   const CATEGORY = { Perishable: 0, NonPerishable: 1 };
   const STATUS = { Produced: 0, Stored: 1, InTransit: 2, Delivered: 3 };
 
+  // Helper: hash password same way as frontend (keccak256 of "username_lowercase:password")
+  function hashPassword(username, password) {
+    return hre.ethers.keccak256(hre.ethers.toUtf8Bytes(username.toLowerCase() + ":" + password));
+  }
+
   // === Deploy Contract ===
   console.log("Deploying SupplyChain contract...");
+  const adminPasswordHash = hashPassword("admin", "admin");
   const SupplyChain = await hre.ethers.getContractFactory("SupplyChain");
-  const contract = await SupplyChain.deploy();
+  const contract = await SupplyChain.deploy(adminPasswordHash);
   await contract.waitForDeployment();
   const contractAddress = await contract.getAddress();
   console.log(`SupplyChain deployed at: ${contractAddress}`);
   console.log(`Admin (deployer): ${signers[0].address}\n`);
 
-  // === Register 6 users (1 per role) ===
+  // === Register 9 users (credentials = role name + number) ===
   const usersData = [
-    { signer: signers[1], name: "Papadopoulos Farm", role: ROLES.Producer },
-    { signer: signers[2], name: "Hellas Transport", role: ROLES.Transporter },
-    { signer: signers[3], name: "Piraeus Warehouse", role: ROLES.Warehouse },
-    { signer: signers[4], name: "Athens SuperMarket", role: ROLES.Distributor },
-    { signer: signers[5], name: "EFET - Regulatory Authority", role: ROLES.Regulator },
-    { signer: signers[6], name: "Thessaly Farm", role: ROLES.Producer },
-    { signer: signers[7], name: "North Express Shipping", role: ROLES.Transporter },
-    { signer: signers[8], name: "THES Distribution Center", role: ROLES.Warehouse },
-    { signer: signers[9], name: "Health Pharmacy", role: ROLES.Distributor },
+    { signer: signers[1], name: "producer1", role: ROLES.Producer },
+    { signer: signers[2], name: "transporter1", role: ROLES.Transporter },
+    { signer: signers[3], name: "warehouse1", role: ROLES.Warehouse },
+    { signer: signers[4], name: "distributor1", role: ROLES.Distributor },
+    { signer: signers[5], name: "regulator1", role: ROLES.Regulator },
+    { signer: signers[6], name: "producer2", role: ROLES.Producer },
+    { signer: signers[7], name: "transporter2", role: ROLES.Transporter },
+    { signer: signers[8], name: "warehouse2", role: ROLES.Warehouse },
+    { signer: signers[9], name: "distributor2", role: ROLES.Distributor },
   ];
 
   console.log("=== Registering Users ===");
   for (const u of usersData) {
-    const tx = await contract.registerUser(u.signer.address, u.name, u.role);
+    // username = password = role-based name (e.g. producer1/producer1)
+    const pwHash = hashPassword(u.name, u.name);
+    const tx = await contract.registerUser(u.signer.address, u.name, u.role, pwHash);
     await tx.wait();
     const roleNames = ["None", "Admin", "Producer", "Transporter", "Warehouse", "Distributor", "Regulator"];
-    console.log(`  ✓ ${u.name} (${roleNames[u.role]}) → ${u.signer.address}`);
+    console.log(`  ✓ ${u.name} (${roleNames[u.role]}) — login: ${u.name}/${u.name}`);
   }
 
   // === Create 10 batches ===
@@ -193,7 +201,7 @@ async function main() {
   const frontendConfig = {
     contractAddress: contractAddress,
     abi: artifact.abi,
-    accounts: signers.slice(0, 10).map((s, i) => ({
+    accounts: signers.slice(0, 20).map((s, i) => ({
       index: i,
       address: s.address,
     })),

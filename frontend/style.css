@@ -125,6 +125,31 @@ header h1 {
     transform: none;
 }
 
+.btn-danger {
+    background: #dc2626;
+    color: white;
+}
+
+.btn-danger:hover {
+    background: #b91c1c;
+    transform: translateY(-1px);
+}
+
+.btn-success {
+    background: #16a34a;
+    color: white;
+}
+
+.btn-success:hover {
+    background: #15803d;
+    transform: translateY(-1px);
+}
+
+.btn-sm {
+    padding: 0.3rem 0.6rem;
+    font-size: 0.8rem;
+}
+
 /* Navigation */
 nav {
     display: flex;
@@ -152,6 +177,19 @@ nav {
     background: var(--primary);
     color: white;
     border-color: var(--primary);
+}
+
+.nav-btn-logout {
+    margin-left: auto;
+    background: #fee2e2;
+    border-color: #fca5a5;
+    color: #dc2626;
+}
+
+.nav-btn-logout:hover {
+    background: #dc2626;
+    color: white;
+    border-color: #dc2626;
 }
 
 /* User info */
@@ -344,6 +382,41 @@ nav {
 /* Hidden */
 .hidden {
     display: none !important;
+}
+
+/* Loading Overlay */
+.loading-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: rgba(255, 255, 255, 0.85);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    z-index: 9999;
+    gap: 16px;
+}
+
+.spinner {
+    width: 48px;
+    height: 48px;
+    border: 4px solid var(--border);
+    border-top-color: var(--primary);
+    border-radius: 50%;
+    animation: spin 0.8s linear infinite;
+}
+
+@keyframes spin {
+    to { transform: rotate(360deg); }
+}
+
+.loading-overlay span {
+    font-size: 1rem;
+    color: var(--text);
+    font-weight: 500;
 }
 
 /* Footer */

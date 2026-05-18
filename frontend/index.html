@@ -4,42 +4,46 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Supply Chain Tracker - Supply Chain Product Traceability</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
     <link rel="stylesheet" href="style.css">
 </head>
 <body>
     <header>
-        <h1>🔗 Supply Chain Tracker</h1>
+        <h1><i class="fa-solid fa-link"></i> Supply Chain Tracker</h1>
         <p class="subtitle">Blockchain-based Supply Chain Product Traceability System</p>
     </header>
 
-    <!-- Connection -->
+    <!-- Login -->
     <section id="connection-section" class="card">
-        <h2>Connect to System</h2>
+        <h2><i class="fa-solid fa-right-to-bracket"></i> Login</h2>
         <div class="form-group">
-            <label for="account-select">Select Account:</label>
-            <select id="account-select">
-                <option value="">-- Select account --</option>
-            </select>
+            <label for="login-username">Username:</label>
+            <input type="text" id="login-username" placeholder="Enter your username">
         </div>
-        <button id="connect-btn" class="btn btn-primary">Connect</button>
+        <div class="form-group">
+            <label for="login-password">Password:</label>
+            <input type="password" id="login-password" placeholder="Enter your password">
+        </div>
+        <button id="connect-btn" class="btn btn-primary">Login</button>
+        <div id="login-error" class="result" style="display:none;"></div>
         <div id="user-info" class="user-info hidden">
             <span id="user-name"></span>
             <span id="user-role" class="badge"></span>
-            <span id="user-address" class="address"></span>
         </div>
     </section>
 
     <!-- Navigation menu (shown after connection) -->
     <nav id="main-nav" class="hidden">
-        <button class="nav-btn active" data-panel="dashboard">📊 Dashboard</button>
-        <button class="nav-btn" data-panel="register-user">👤 Register User</button>
-        <button class="nav-btn" data-panel="create-batch">📦 New Batch</button>
-        <button class="nav-btn" data-panel="update-batch">🔄 Update Batch</button>
-        <button class="nav-btn" data-panel="transfer-batch">➡️ Transfer</button>
-        <button class="nav-btn" data-panel="certify-batch">✅ Certification</button>
-        <button class="nav-btn" data-panel="search-batch">🔍 Search</button>
-        <button class="nav-btn" data-panel="all-batches">📋 All Batches</button>
-        <button class="nav-btn" data-panel="all-users">👥 Users</button>
+        <button class="nav-btn active" data-panel="dashboard"><i class="fa-solid fa-chart-column"></i> Dashboard</button>
+        <button class="nav-btn" data-panel="register-user"><i class="fa-solid fa-user-plus"></i> Register User</button>
+        <button class="nav-btn" data-panel="create-batch"><i class="fa-solid fa-box"></i> New Batch</button>
+        <button class="nav-btn" data-panel="update-batch"><i class="fa-solid fa-arrows-rotate"></i> Update Batch</button>
+        <button class="nav-btn" data-panel="transfer-batch"><i class="fa-solid fa-arrow-right"></i> Transfer</button>
+        <button class="nav-btn" data-panel="certify-batch"><i class="fa-solid fa-certificate"></i> Certification</button>
+        <button class="nav-btn" data-panel="search-batch"><i class="fa-solid fa-magnifying-glass"></i> Search</button>
+        <button class="nav-btn" data-panel="all-batches"><i class="fa-solid fa-clipboard-list"></i> All Batches</button>
+        <button class="nav-btn" data-panel="all-users"><i class="fa-solid fa-users"></i> Users</button>
+        <button id="logout-btn" class="nav-btn nav-btn-logout"><i class="fa-solid fa-right-from-bracket"></i> Logout</button>
     </nav>
 
     <!-- Panels -->
@@ -47,13 +51,13 @@
 
         <!-- Dashboard -->
         <section id="panel-dashboard" class="panel card">
-            <h2>📊 Dashboard</h2>
+            <h2><i class="fa-solid fa-chart-column"></i> Dashboard</h2>
             <div class="stats">
                 <div class="stat-box">
                     <span class="stat-number" id="stat-batches">0</span>
                     <span class="stat-label">Batches</span>
                 </div>
-                <div class="stat-box">
+                <div class="stat-box" id="stat-users-box">
                     <span class="stat-number" id="stat-users">0</span>
                     <span class="stat-label">Users</span>
                 </div>
@@ -66,14 +70,14 @@
 
         <!-- Register User (Admin only) -->
         <section id="panel-register-user" class="panel card hidden">
-            <h2>👤 Register New User</h2>
+            <h2><i class="fa-solid fa-user-plus"></i> Register New User</h2>
             <div class="form-group">
-                <label>Ethereum Address:</label>
-                <input type="text" id="reg-address" placeholder="0x...">
+                <label>Username:</label>
+                <input type="text" id="reg-name" placeholder="Unique username">
             </div>
             <div class="form-group">
-                <label>Name:</label>
-                <input type="text" id="reg-name" placeholder="Username">
+                <label>Password:</label>
+                <input type="password" id="reg-password" placeholder="Password for the new user">
             </div>
             <div class="form-group">
                 <label>Role:</label>
@@ -85,13 +89,17 @@
                     <option value="6">Regulator / Regulatory Authority</option>
                 </select>
             </div>
+            <div class="form-group">
+                <label>Ethereum Address (optional):</label>
+                <input type="text" id="reg-address" placeholder="Leave empty to auto-assign">
+            </div>
             <button id="register-user-btn" class="btn btn-primary">Register</button>
             <div id="register-user-result" class="result"></div>
         </section>
 
         <!-- Create Batch (Producer only) -->
         <section id="panel-create-batch" class="panel card hidden">
-            <h2>📦 Create New Batch</h2>
+            <h2><i class="fa-solid fa-box"></i> Create New Batch</h2>
             <div class="form-group">
                 <label>Product Type:</label>
                 <input type="text" id="batch-type" placeholder="e.g. Olive Oil">
@@ -113,7 +121,7 @@
 
         <!-- Update Batch Status -->
         <section id="panel-update-batch" class="panel card hidden">
-            <h2>🔄 Update Batch Status</h2>
+            <h2><i class="fa-solid fa-arrows-rotate"></i> Update Batch Status</h2>
             <div class="form-group">
                 <label>Batch ID:</label>
                 <input type="number" id="update-batch-id" placeholder="e.g. 1" min="1">
@@ -141,14 +149,14 @@
 
         <!-- Transfer Batch -->
         <section id="panel-transfer-batch" class="panel card hidden">
-            <h2>➡️ Transfer Batch</h2>
+            <h2><i class="fa-solid fa-arrow-right"></i> Transfer Batch</h2>
             <div class="form-group">
                 <label>Batch ID:</label>
                 <input type="number" id="transfer-batch-id" placeholder="e.g. 1" min="1">
             </div>
             <div class="form-group">
-                <label>New Holder (Ethereum Address):</label>
-                <input type="text" id="transfer-new-holder" placeholder="0x...">
+                <label>New Holder (Username or Address):</label>
+                <input type="text" id="transfer-new-holder" placeholder="e.g. transporter1 or 0x...">
             </div>
             <button id="transfer-batch-btn" class="btn btn-primary">Transfer</button>
             <div id="transfer-batch-result" class="result"></div>
@@ -156,7 +164,7 @@
 
         <!-- Certification (Regulator only) -->
         <section id="panel-certify-batch" class="panel card hidden">
-            <h2>✅ Certify Batch</h2>
+            <h2><i class="fa-solid fa-certificate"></i> Certify Batch</h2>
             <div class="form-group">
                 <label>Batch ID:</label>
                 <input type="number" id="certify-batch-id" placeholder="e.g. 1" min="1">
@@ -167,7 +175,7 @@
 
         <!-- Search Batch -->
         <section id="panel-search-batch" class="panel card">
-            <h2>🔍 Search Batch</h2>
+            <h2><i class="fa-solid fa-magnifying-glass"></i> Search Batch</h2>
             <div class="form-group">
                 <label>Batch ID:</label>
                 <input type="number" id="search-batch-id" placeholder="e.g. 1" min="1">
@@ -186,7 +194,7 @@
 
         <!-- All Batches -->
         <section id="panel-all-batches" class="panel card hidden">
-            <h2>📋 All Batches</h2>
+            <h2><i class="fa-solid fa-clipboard-list"></i> All Batches</h2>
             <table id="all-batches-table" class="data-table">
                 <thead>
                     <tr>
@@ -205,7 +213,7 @@
 
         <!-- Users -->
         <section id="panel-all-users" class="panel card hidden">
-            <h2>👥 Registered Users</h2>
+            <h2><i class="fa-solid fa-users"></i> Registered Users</h2>
             <table id="all-users-table" class="data-table">
                 <thead>
                     <tr>
@@ -213,6 +221,7 @@
                         <th>Name</th>
                         <th>Role</th>
                         <th>Status</th>
+                        <th>Actions</th>
                     </tr>
                 </thead>
                 <tbody></tbody>
@@ -223,15 +232,17 @@
 
     <!-- Transaction Log -->
     <section id="tx-log-section" class="card hidden">
-        <h2>📝 Transaction Log</h2>
+        <h2><i class="fa-solid fa-scroll"></i> Transaction Log</h2>
         <div id="tx-log"></div>
     </section>
 
-    <footer>
-        <p>Supply Chain Tracker &copy; 2026 — Blockchain-based Product Traceability System</p>
-    </footer>
-
     <script src="https://cdn.jsdelivr.net/npm/ethers@6.13.4/dist/ethers.umd.min.js"></script>
     <script type="module" src="app.js"></script>
+
+    <!-- Loading Spinner Overlay -->
+    <div id="loading-overlay" class="loading-overlay hidden">
+        <div class="spinner"></div>
+        <span id="loading-text">Processing...</span>
+    </div>
 </body>
 </html>

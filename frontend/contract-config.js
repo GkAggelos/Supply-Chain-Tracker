@@ -3,7 +3,13 @@ export const CONTRACT_CONFIG = {
   "contractAddress": "0x5FbDB2315678afecb367f032d93F642f64180aa3",
   "abi": [
     {
-      "inputs": [],
+      "inputs": [
+        {
+          "internalType": "bytes32",
+          "name": "_adminPasswordHash",
+          "type": "bytes32"
+        }
+      ],
       "stateMutability": "nonpayable",
       "type": "constructor"
     },
@@ -349,6 +355,25 @@ export const CONTRACT_CONFIG = {
       "type": "function"
     },
     {
+      "inputs": [
+        {
+          "internalType": "string",
+          "name": "_username",
+          "type": "string"
+        }
+      ],
+      "name": "getAddressByUsername",
+      "outputs": [
+        {
+          "internalType": "address",
+          "name": "",
+          "type": "address"
+        }
+      ],
+      "stateMutability": "view",
+      "type": "function"
+    },
+    {
       "inputs": [],
       "name": "getAllBatchIds",
       "outputs": [
@@ -565,6 +590,19 @@ export const CONTRACT_CONFIG = {
           "internalType": "address",
           "name": "_userAddress",
           "type": "address"
+        }
+      ],
+      "name": "reactivateUser",
+      "outputs": [],
+      "stateMutability": "nonpayable",
+      "type": "function"
+    },
+    {
+      "inputs": [
+        {
+          "internalType": "address",
+          "name": "_userAddress",
+          "type": "address"
         },
         {
           "internalType": "string",
@@ -575,6 +613,11 @@ export const CONTRACT_CONFIG = {
           "internalType": "enum SupplyChain.Role",
           "name": "_role",
           "type": "uint8"
+        },
+        {
+          "internalType": "bytes32",
+          "name": "_passwordHash",
+          "type": "bytes32"
         }
       ],
       "name": "registerUser",
@@ -680,6 +723,35 @@ export const CONTRACT_CONFIG = {
       ],
       "stateMutability": "view",
       "type": "function"
+    },
+    {
+      "inputs": [
+        {
+          "internalType": "string",
+          "name": "_username",
+          "type": "string"
+        },
+        {
+          "internalType": "bytes32",
+          "name": "_passwordHash",
+          "type": "bytes32"
+        }
+      ],
+      "name": "verifyLogin",
+      "outputs": [
+        {
+          "internalType": "bool",
+          "name": "",
+          "type": "bool"
+        },
+        {
+          "internalType": "address",
+          "name": "",
+          "type": "address"
+        }
+      ],
+      "stateMutability": "view",
+      "type": "function"
     }
   ],
   "accounts": [
@@ -722,6 +794,46 @@ export const CONTRACT_CONFIG = {
     {
       "index": 9,
       "address": "0xa0Ee7A142d267C1f36714E4a8F75612F20a79720"
+    },
+    {
+      "index": 10,
+      "address": "0xBcd4042DE499D14e55001CcbB24a551F3b954096"
+    },
+    {
+      "index": 11,
+      "address": "0x71bE63f3384f5fb98995898A86B02Fb2426c5788"
+    },
+    {
+      "index": 12,
+      "address": "0xFABB0ac9d68B0B445fB7357272Ff202C5651694a"
+    },
+    {
+      "index": 13,
+      "address": "0x1CBd3b2770909D4e10f157cABC84C7264073C9Ec"
+    },
+    {
+      "index": 14,
+      "address": "0xdF3e18d64BC6A983f673Ab319CCaE4f1a57C7097"
+    },
+    {
+      "index": 15,
+      "address": "0xcd3B766CCDd6AE721141F452C550Ca635964ce71"
+    },
+    {
+      "index": 16,
+      "address": "0x2546BcD3c84621e976D8185a91A922aE77ECEc30"
+    },
+    {
+      "index": 17,
+      "address": "0xbDA5747bFD65F08deb54cb465eB87D40e51B197E"
+    },
+    {
+      "index": 18,
+      "address": "0xdD2FD4581271e230360230F9337D5c0430Bf44C0"
+    },
+    {
+      "index": 19,
+      "address": "0x8626f6940E2eb28930eFb4CeF49B2d1F2C9C1199"
     }
   ]
 };

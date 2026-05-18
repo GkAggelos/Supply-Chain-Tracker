@@ -37,7 +37,7 @@ npx hardhat run scripts/deploy.js --network localhost
 
 This will:
 - Deploy the SupplyChain smart contract
-- Register 10 users (1 Admin + 9 with various roles)
+- Register 10 users (1 Admin + 9 with various roles) with hashed passwords
 - Create 10 product batches
 - Execute 2 full end-to-end routes (Olive Oil & Vaccine)
 - Automatically generate the `frontend/contract-config.js` file
@@ -56,29 +56,31 @@ Then open: **http://localhost:3000**
 
 ## Using the Application
 
-### Connection
-Select an account from the list and click **Connect**. The system automatically recognizes your role.
+### Login
+Enter your **username** and **password**, then click **Login**. The system authenticates via on-chain password hash verification and automatically recognizes your role.
 
-### Demo Accounts
+To logout, click the **Logout** button on the navigation bar.
 
-| Account | Name | Role |
-|---------|------|------|
-| #0 | Admin | Administrator |
-| #1 | Papadopoulos Farm | Producer |
-| #2 | Hellas Transport | Transporter |
-| #3 | Piraeus Warehouse | Warehouse |
-| #4 | Athens SuperMarket | Distributor |
-| #5 | EFET - Regulatory Authority | Regulator |
-| #6 | Thessaly Farm | Producer |
-| #7 | North Express Shipping | Transporter |
-| #8 | THES Distribution Center | Warehouse |
-| #9 | Health Pharmacy | Distributor |
+### Demo Credentials
+
+| Username | Password | Role |
+|----------|----------|------|
+| admin | admin | Administrator |
+| producer1 | producer1 | Producer |
+| transporter1 | transporter1 | Transporter |
+| warehouse1 | warehouse1 | Warehouse |
+| distributor1 | distributor1 | Distributor |
+| regulator1 | regulator1 | Regulator |
+| producer2 | producer2 | Producer |
+| transporter2 | transporter2 | Transporter |
+| warehouse2 | warehouse2 | Warehouse |
+| distributor2 | distributor2 | Distributor |
 
 ### Permissions per Role
 
 | Role | Permissions |
 |------|------------|
-| Administrator | Register/deactivate users |
+| Administrator | Register users (with auto-generated Ethereum address & hashed password) |
 | Producer | Create batches, transfer |
 | Transporter | Update status (transport), transfer |
 | Warehouse | Update status (storage), transfer |
@@ -105,9 +107,10 @@ supply-chain-blockchain/
 
 ## Technologies
 
-- **Solidity ^0.8.27** — Smart Contract
+- **Solidity ^0.8.27** — Smart Contract (with on-chain password hash authentication)
 - **Hardhat** — Development & testing framework
 - **ethers.js v6** — Frontend ↔ blockchain connection
+- **Font Awesome 6** — UI icons
 - **HTML/CSS/JavaScript** — User Interface
 
 ## Security Audit
